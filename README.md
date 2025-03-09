@@ -1,5 +1,7 @@
 # skani - accurate, fast nucleotide identity calculation for MAGs, genomes, and databases
 
+**This is a version forked from (skani)[https://github.com/bluenote-1577/skani] to update dependencies (needed by [https://github.com/jean-pierreBoth/gsearch])**
+
 ## Introduction
 
 **skani** is a program for calculating **average nucleotide identity** (ANI) and **aligned fraction** (AF) for DNA sequences (contigs/MAGs/genomes) and ANI > ~80%.

@@ -1,7 +1,7 @@
 use crate::chain;
-use crate::regression;
 use crate::file_io;
 use crate::params::*;
+use crate::regression;
 use crate::screen;
 use crate::types::*;
 use fxhash::FxHashMap;
@@ -47,9 +47,12 @@ pub fn search(command_params: CommandParams) {
         screen_val = command_params.screen_val;
     }
 
-
-
-    let learned_ani = regression::use_learned_ani(sketch_params.c, command_params.individual_contig_q, false, command_params.median);
+    let learned_ani = regression::use_learned_ani(
+        sketch_params.c,
+        command_params.individual_contig_q,
+        false,
+        command_params.median,
+    );
     let model_opt = regression::get_model(sketch_params.c, learned_ani);
     if model_opt.is_some() {
         info!("{}", LEARNED_INFO_HELP);
@@ -103,7 +106,12 @@ pub fn search(command_params: CommandParams) {
                     let js = 0..ref_sketches.len();
                     js.into_par_iter().for_each(|j| {
                         let ref_sketch = &ref_sketches[j];
-                        if screen::check_markers_quickly(query_sketch, ref_sketch, screen_val, false) {
+                        if screen::check_markers_quickly(
+                            query_sketch,
+                            ref_sketch,
+                            screen_val,
+                            false,
+                        ) {
                             let mut lock = refs_to_try_mutex.lock().unwrap();
                             lock.push(&ref_sketches[j].file_name);
                         }
@@ -121,7 +129,7 @@ pub fn search(command_params: CommandParams) {
                 debug!("Refs to try {}", refs_to_try.len());
                 let js = 0..refs_to_try.len();
                 js.into_par_iter().for_each(|j| {
-                    let original_file = &refs_to_try[j];
+                    let original_file = refs_to_try[j];
                     let ref_sketch;
                     if !command_params.keep_refs {
                         let sketch_file = folder.join(
@@ -129,15 +137,17 @@ pub fn search(command_params: CommandParams) {
                                 .file_name()
                                 .unwrap(),
                         );
-                        let (_sketch_params_ref, ref_sketch_new) = file_io::sketches_from_sketch(
-                            &vec![sketch_file.to_str().unwrap().to_string()],
-                        );
+                        let (_sketch_params_ref, ref_sketch_new) =
+                            file_io::sketches_from_sketch(&vec![sketch_file
+                                .to_str()
+                                .unwrap()
+                                .to_string()]);
                         ref_sketch = ref_sketch_new;
                         let map_params = chain::map_params_from_sketch(
                             &ref_sketch[0],
                             sketch_params.use_aa,
                             &command_params,
-                            &model_opt
+                            &model_opt,
                         );
                         let ani_res;
                         ani_res = chain::chain_seeds(&ref_sketch[0], query_sketch, map_params);
@@ -160,10 +170,10 @@ pub fn search(command_params: CommandParams) {
                                 &ref_sketch[0],
                                 sketch_params.use_aa,
                                 &command_params,
-                                &model_opt
+                                &model_opt,
                             );
                             let ani_res;
-                                ani_res = chain::chain_seeds(&ref_sketch[0], query_sketch, map_params);
+                            ani_res = chain::chain_seeds(&ref_sketch[0], query_sketch, map_params);
                             if ani_res.ani > 0.5 {
                                 let mut locked = anis.lock().unwrap();
                                 locked.push(ani_res);
@@ -174,21 +184,23 @@ pub fn search(command_params: CommandParams) {
                                     .file_name()
                                     .unwrap(),
                             );
-                            let (_sketch_params_ref, ref_sketch) = file_io::sketches_from_sketch(
-                                &vec![sketch_file.to_str().unwrap().to_string()],
-                            );
+                            let (_sketch_params_ref, ref_sketch) =
+                                file_io::sketches_from_sketch(&vec![sketch_file
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string()]);
 
                             let map_params = chain::map_params_from_sketch(
                                 &ref_sketch[0],
                                 sketch_params.use_aa,
                                 &command_params,
-                                &model_opt
+                                &model_opt,
                             );
                             let ani_res;
                             ani_res = chain::chain_seeds(&ref_sketch[0], query_sketch, map_params);
                             {
                                 let mut write_table = ref_sketches_used.write().unwrap();
-                                write_table.insert(original_file.clone(), ref_sketch);
+                                write_table.insert(original_file, ref_sketch);
                             }
 
                             if ani_res.ani > 0.5 {
@@ -209,12 +221,15 @@ pub fn search(command_params: CommandParams) {
                 }
                 if c % 100 == 0 && c != 0 {
                     info!("{} query sequences processed.", c);
-                    if c % INTERMEDIATE_WRITE_COUNT == 0 && c != 0{
-                        info!("Writing results for {} query sequences.", INTERMEDIATE_WRITE_COUNT);
+                    if c % INTERMEDIATE_WRITE_COUNT == 0 && c != 0 {
+                        info!(
+                            "Writing results for {} query sequences.",
+                            INTERMEDIATE_WRITE_COUNT
+                        );
                         let moved_anis: Vec<AniEstResult>;
                         {
-                        let mut locked = anis.lock().unwrap();
-                        moved_anis = std::mem::take(&mut locked);
+                            let mut locked = anis.lock().unwrap();
+                            moved_anis = std::mem::take(&mut locked);
                         }
                         let mut fw = first_write.lock().unwrap();
                         file_io::write_query_ref_list(
@@ -224,9 +239,9 @@ pub fn search(command_params: CommandParams) {
                             sketch_params.use_aa,
                             command_params.est_ci,
                             command_params.detailed_out,
-                            !*fw
+                            !*fw,
                         );
-                        if *fw == true{
+                        if *fw == true {
                             *fw = false;
                         }
                     }
@@ -234,12 +249,15 @@ pub fn search(command_params: CommandParams) {
             });
         }
     }
-    if command_params.keep_refs{
-        info!("{} references kept in memory for --keep-refs", ref_sketches_used.read().unwrap().len());
+    if command_params.keep_refs {
+        info!(
+            "{} references kept in memory for --keep-refs",
+            ref_sketches_used.read().unwrap().len()
+        );
     }
-    
+
     let anis = anis.into_inner().unwrap();
-    
+
     file_io::write_query_ref_list(
         &anis,
         &command_params.out_file_name,
@@ -247,7 +265,7 @@ pub fn search(command_params: CommandParams) {
         sketch_params.use_aa,
         command_params.est_ci,
         command_params.detailed_out,
-        !*first_write.lock().unwrap()
+        !*first_write.lock().unwrap(),
     );
     info!("Searching time: {}", now.elapsed().as_secs_f32());
 }

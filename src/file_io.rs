@@ -1,14 +1,14 @@
 use crate::params::*;
-use std::fs::OpenOptions;
 use crate::seeding;
 use crate::types::*;
 use fxhash::FxHashMap;
 use log::*;
 use needletail::parse_fastx_file;
+use rand::rng;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 use rayon::prelude::*;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::{self, BufReader, BufWriter, Write};
 use std::sync::Mutex;
 
@@ -27,13 +27,7 @@ fn write_ani_res_perfect(writer: &mut impl Write, sketch: &Sketch, ci: bool, ver
         writeln!(
             writer,
             "{}\t{}\t{:.2}\t{:.2}\t{:.2}\t{}\t{}",
-            sketch.file_name,
-            sketch.file_name,
-            100,
-            100,
-            100,
-            sketch.contigs[0],
-            sketch.contigs[0],
+            sketch.file_name, sketch.file_name, 100, 100, 100, sketch.contigs[0], sketch.contigs[0],
         )
         .unwrap();
     } else if !verbose {
@@ -145,7 +139,7 @@ pub fn fastx_to_sketches(
 ) -> Vec<Sketch> {
     let ref_sketches: Mutex<Vec<_>> = Mutex::new(vec![]);
     let mut index_vec = (0..ref_files.len()).collect::<Vec<usize>>();
-    index_vec.shuffle(&mut thread_rng());
+    index_vec.shuffle(&mut rng());
     index_vec.into_par_iter().for_each(|i| {
         let ref_file = &ref_files[i];
         let mut new_sketch = Sketch::new(
@@ -257,7 +251,7 @@ pub fn fastx_to_multiple_sketch_rewrite(
 ) -> Vec<Sketch> {
     let ref_sketches: Mutex<Vec<_>> = Mutex::new(vec![]);
     let mut index_vec = (0..ref_files.len()).collect::<Vec<usize>>();
-    index_vec.shuffle(&mut thread_rng());
+    index_vec.shuffle(&mut rng());
     index_vec.into_par_iter().for_each(|i| {
         let mut small_contig_warn = false;
         let ref_file = &ref_files[i];
@@ -371,7 +365,7 @@ pub fn write_phyllip_matrix(
     aai: bool,
     distance: bool,
 ) {
-    let perfect = if distance {0.} else {100.};
+    let perfect = if distance { 0. } else { 100. };
     let none = 100. - perfect;
 
     let _id_str = if aai { "AAI" } else { "ANI" };
@@ -412,7 +406,7 @@ pub fn write_phyllip_matrix(
                     write!(&mut handle, "\t{:.2}", none).unwrap();
                 } else {
                     let val = anis[&x][&y].ani * 100.;
-                    let ani_val = if !distance {val} else { 100. - val};
+                    let ani_val = if !distance { val } else { 100. - val };
                     write!(&mut handle, "\t{:.2}", ani_val).unwrap();
                 }
             }
@@ -495,19 +489,19 @@ pub fn write_phyllip_matrix(
                 let y = usize::max(i, j);
 
                 if !anis.contains_key(&x) || !anis[&x].contains_key(&y) {
-                    if full_cond{
+                    if full_cond {
                         write!(&mut ani_file, "\t{:.2}", none).unwrap();
                     }
                     write!(&mut af_file, "\t{:.2}", 0.).unwrap();
                 } else if anis[&x][&y].ani == -1. || anis[&x][&y].ani.is_nan() {
-                    if full_cond{
+                    if full_cond {
                         write!(&mut ani_file, "\t{:.2}", none).unwrap();
                     }
                     write!(&mut af_file, "\t{:.2}", 0.).unwrap();
                 } else {
-                    if full_cond{
+                    if full_cond {
                         let val = anis[&x][&y].ani * 100.;
-                        let ani_val = if !distance {val} else { 100. - val};
+                        let ani_val = if !distance { val } else { 100. - val };
                         write!(&mut ani_file, "\t{:.2}", ani_val).unwrap();
                     }
                     if j > i {
@@ -546,18 +540,18 @@ pub fn write_sparse_matrix(
     est_ci: bool,
     detailed_out: bool,
     diag: bool,
-    append: bool
+    append: bool,
 ) {
     let id_str = if aai { "AAI" } else { "ANI" };
     if file_name.is_empty() {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
-        if !append{
+        if !append {
             write_header(&mut handle, id_str, est_ci, detailed_out);
         }
         //        write!(&mut handle,"Ref_file\tQuery_file\t{}\tAlign_fraction_ref\tAlign_fraction_query\t{}_95_percentile\t{}_5_percentile\tRef_name\tQuery_name\n", id_str, id_str, id_str).unwrap();
-        if diag{
-            for sketch in sketches.iter(){
+        if diag {
+            for sketch in sketches.iter() {
                 write_ani_res_perfect(&mut handle, sketch, est_ci, detailed_out);
             }
         }
@@ -571,28 +565,28 @@ pub fn write_sparse_matrix(
     } else {
         let ani_mat_file = file_name.to_string();
         let mut ani_file;
-        if append{
+        if append {
             let file = OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(ani_mat_file).expect(file_name);
-                ani_file = BufWriter::new(file);
-        }
-        else{
+                .open(ani_mat_file)
+                .expect(file_name);
+            ani_file = BufWriter::new(file);
+        } else {
             ani_file = BufWriter::new(File::create(ani_mat_file).expect(file_name));
         }
-        if !append{
+        if !append {
             write_header(&mut ani_file, id_str, est_ci, detailed_out);
         }
 
-        if diag{
-            for sketch in sketches.iter(){
+        if diag {
+            for sketch in sketches.iter() {
                 write_ani_res_perfect(&mut ani_file, sketch, est_ci, detailed_out);
             }
         }
 
         for i in anis.keys() {
-            if diag{
+            if diag {
                 write_ani_res_perfect(&mut ani_file, &sketches[*i], est_ci, detailed_out);
             }
             for (j, ani_res) in anis[i].iter() {
@@ -637,7 +631,7 @@ pub fn write_query_ref_list(
     if out_file.is_empty() {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
-        if !append{
+        if !append {
             write_header(&mut handle, id_str, est_ci, detailed_out);
         }
         for key in sorted_keys {
@@ -650,18 +644,18 @@ pub fn write_query_ref_list(
         }
     } else {
         let mut handle;
-        if append{
+        if append {
             let file = OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(out_file).expect(file_name);
+                .open(out_file)
+                .expect(file_name);
             handle = BufWriter::new(file);
-        }
-        else{
+        } else {
             handle = BufWriter::new(File::create(out_file).expect(file_name));
         }
 
-        if !append{
+        if !append {
             write_header(&mut handle, id_str, est_ci, detailed_out);
         }
         for key in sorted_keys {
@@ -687,7 +681,10 @@ pub fn sketches_from_sketch(ref_files: &Vec<String>) -> (SketchParams, Vec<Sketc
             if !sketch_file.contains("markers.bin") {
                 let f = File::open(sketch_file);
                 if f.is_err() {
-                    error!("Problem reading sketch file {}. Perhaps your file path is wrong? Exiting.", sketch_file);
+                    error!(
+                        "Problem reading sketch file {}. Perhaps your file path is wrong? Exiting.",
+                        sketch_file
+                    );
                     std::process::exit(1)
                 }
                 let reader = BufReader::new(f.unwrap());
